@@ -18,13 +18,20 @@ HEADERS = {
 # Bidi marks Amazon injects around labels/colons in detail bullets.
 STRIP_CHARS = "‎‏: \t\n"
 
-# Amazon renders the same fields under different labels depending on which
-# page template a listing uses ("Brand" vs "Brand Name", "Country of Origin"
-# vs "Country of Publication", "Packer" vs "Packer Contact Information", ...).
-# Substring match instead of an exact-label dict so label drift doesn't
-# silently drop data. Order matters: more specific patterns first.
-LABEL_PATTERNS = [
-    ("manufacturer", "manufacturer"),
+# "manufacturer" must be an EXACT label match -- Amazon has several other
+# labels that contain the word "manufacturer" as a substring (e.g. "Is
+# Discontinued By Manufacturer" [value "Yes"/"No"], "Manufacturer Part
+# Number", "Manufacturer Contact Information") whose values are NOT the
+# manufacturer name. A loose match here silently corrupts the field with
+# garbage like manufacturer="No" -- confirmed happening in practice.
+EXACT_LABELS = {
+    "manufacturer": "manufacturer",
+}
+
+# These fields haven't shown the same false-positive risk, so substring
+# matching is used to absorb Amazon's label wording drift ("Brand" vs "Brand
+# Name", "Country of Origin" vs "Country of Publication", etc).
+SUBSTRING_PATTERNS = [
     ("model number", "item_model_number"),
     ("country of", "country_of_origin"),
     ("importer", "importer"),
@@ -34,9 +41,11 @@ LABEL_PATTERNS = [
 
 
 def match_label(label):
-    label = label.lower()
-    for pattern, key in LABEL_PATTERNS:
-        if pattern in label:
+    norm = label.lower().strip()
+    if norm in EXACT_LABELS:
+        return EXACT_LABELS[norm]
+    for pattern, key in SUBSTRING_PATTERNS:
+        if pattern in norm:
             return key
     return None
 
