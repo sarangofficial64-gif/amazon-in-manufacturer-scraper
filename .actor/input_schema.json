@@ -1,0 +1,23 @@
+{
+    "title": "Amazon.in Manufacturer Scraper",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "asins": {
+            "title": "ASINs",
+            "type": "array",
+            "editor": "stringList",
+            "description": "Amazon ASINs to look up on amazon.in (10-character product IDs).",
+            "prefill": ["B09Z6TJP7Y"]
+        },
+        "maxRetries": {
+            "title": "Max retries per ASIN",
+            "type": "integer",
+            "description": "Each retry gets a fresh residential proxy IP.",
+            "default": 2,
+            "minimum": 0,
+            "maximum": 5
+        }
+    },
+    "required": ["asins"]
+}

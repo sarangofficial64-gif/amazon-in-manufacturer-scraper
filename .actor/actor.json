@@ -1,0 +1,13 @@
+{
+    "actorSpecification": 1,
+    "name": "amazon-in-manufacturer-scraper",
+    "title": "Amazon.in Manufacturer & Sales Badge Scraper",
+    "description": "Fetches manufacturer, brand, packer/importer, country of origin, and the 'bought in past month' badge for Amazon.in ASINs, routed through Apify's residential proxy.",
+    "version": "1.0",
+    "buildTag": "latest",
+    "meta": {
+        "templateId": "python-empty"
+    },
+    "input": "./input_schema.json",
+    "dockerfile": "../Dockerfile"
+}
