@@ -18,14 +18,27 @@ HEADERS = {
 # Bidi marks Amazon injects around labels/colons in detail bullets.
 STRIP_CHARS = "‎‏: \t\n"
 
-WANTED_LABELS = {
-    "manufacturer": "manufacturer",
-    "brand": "brand",
-    "packer": "packer",
-    "importer": "importer",
-    "country of origin": "country_of_origin",
-    "item model number": "item_model_number",
-}
+# Amazon renders the same fields under different labels depending on which
+# page template a listing uses ("Brand" vs "Brand Name", "Country of Origin"
+# vs "Country of Publication", "Packer" vs "Packer Contact Information", ...).
+# Substring match instead of an exact-label dict so label drift doesn't
+# silently drop data. Order matters: more specific patterns first.
+LABEL_PATTERNS = [
+    ("manufacturer", "manufacturer"),
+    ("model number", "item_model_number"),
+    ("country of", "country_of_origin"),
+    ("importer", "importer"),
+    ("packer", "packer"),
+    ("brand", "brand"),
+]
+
+
+def match_label(label):
+    label = label.lower()
+    for pattern, key in LABEL_PATTERNS:
+        if pattern in label:
+            return key
+    return None
 
 BOUGHT_COUNT_RE = re.compile(r"([\d.]+)\s*([KM]?)\+?\s*bought", re.IGNORECASE)
 BOUGHT_MULTIPLIERS = {"K": 1_000, "M": 1_000_000, "": 1}
@@ -53,8 +66,8 @@ def parse_detail_bullets(soup, out):
         bold = li.select_one(".a-text-bold")
         if not bold:
             continue
-        label = clean(bold.get_text(" ", strip=True)).lower()
-        key = WANTED_LABELS.get(label)
+        label = clean(bold.get_text(" ", strip=True))
+        key = match_label(label)
         if not key or key in out:
             continue
         value_span = bold.find_next_sibling("span")
@@ -71,8 +84,25 @@ def parse_detail_table(soup, out):
             th, td = row.find("th"), row.find("td")
             if not th or not td:
                 continue
-            label = clean(th.get_text(" ", strip=True)).lower()
-            key = WANTED_LABELS.get(label)
+            label = clean(th.get_text(" ", strip=True))
+            key = match_label(label)
+            if not key or key in out:
+                continue
+            out[key] = clean(td.get_text(" ", strip=True))
+
+
+def parse_expander_tables(soup, out):
+    # Newer "Product information" accordion (Item details / Materials & Care /
+    # Measurements / ...) -- a third distinct layout Amazon uses on top of the
+    # two above. Structural selector (class, not a specific container id)
+    # since the id suffix varies per section.
+    for table in soup.select("table.prodDetTable"):
+        for row in table.select("tr"):
+            th, td = row.find("th"), row.find("td")
+            if not th or not td:
+                continue
+            label = clean(th.get_text(" ", strip=True))
+            key = match_label(label)
             if not key or key in out:
                 continue
             out[key] = clean(td.get_text(" ", strip=True))
@@ -123,6 +153,7 @@ def parse_product_page(html):
     out = {}
     parse_detail_bullets(soup, out)
     parse_detail_table(soup, out)
+    parse_expander_tables(soup, out)
     parse_byline_brand(soup, out)
     parse_social_proof(soup, out)
     return out
