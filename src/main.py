@@ -63,6 +63,18 @@ def clean(text):
     return text.strip(STRIP_CHARS).strip()
 
 
+def set_field(out, key, value):
+    # Amazon sometimes lists the same field twice on one page (duplicate
+    # detail-bullet entries, or the same field across two different layout
+    # containers) with inconsistent completeness -- e.g. "Manufacturer: 160"
+    # vs "Manufacturer: 160, care@reequil.com" on the very same page. Prefer
+    # whichever occurrence is longer/more complete rather than first-wins.
+    if not key or not value:
+        return
+    if key not in out or len(value) > len(out[key]):
+        out[key] = value
+
+
 def is_blocked(html):
     return any(m in html for m in BLOCK_MARKERS)
 
@@ -77,11 +89,9 @@ def parse_detail_bullets(soup, out):
             continue
         label = clean(bold.get_text(" ", strip=True))
         key = match_label(label)
-        if not key or key in out:
-            continue
         value_span = bold.find_next_sibling("span")
         if value_span:
-            out[key] = clean(value_span.get_text(" ", strip=True))
+            set_field(out, key, clean(value_span.get_text(" ", strip=True)))
 
 
 def parse_detail_table(soup, out):
@@ -95,9 +105,7 @@ def parse_detail_table(soup, out):
                 continue
             label = clean(th.get_text(" ", strip=True))
             key = match_label(label)
-            if not key or key in out:
-                continue
-            out[key] = clean(td.get_text(" ", strip=True))
+            set_field(out, key, clean(td.get_text(" ", strip=True)))
 
 
 def parse_expander_tables(soup, out):
@@ -112,9 +120,7 @@ def parse_expander_tables(soup, out):
                 continue
             label = clean(th.get_text(" ", strip=True))
             key = match_label(label)
-            if not key or key in out:
-                continue
-            out[key] = clean(td.get_text(" ", strip=True))
+            set_field(out, key, clean(td.get_text(" ", strip=True)))
 
 
 def parse_byline_brand(soup, out):
